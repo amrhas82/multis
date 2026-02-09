@@ -1,5 +1,6 @@
 const { logAudit } = require('../governance/audit');
 const { addAllowedUser } = require('../config');
+const { execCommand, readFile, listSkills } = require('../skills/executor');
 
 /**
  * Check if a user is paired (allowed)
@@ -83,6 +84,93 @@ function handleUnpair(config) {
 }
 
 /**
+ * Handle /exec command - run shell commands with governance
+ * Usage: /exec ls -la ~/Documents
+ */
+function handleExec(config) {
+  return (ctx) => {
+    if (!isPaired(ctx, config)) return;
+
+    const text = ctx.message.text || '';
+    const command = text.replace(/^\/exec\s*/, '').trim();
+
+    if (!command) {
+      ctx.reply('Usage: /exec <command>\nExample: /exec ls -la ~/Documents');
+      return;
+    }
+
+    const result = execCommand(command, ctx.from.id);
+
+    if (result.denied) {
+      ctx.reply(`Denied: ${result.reason}`);
+      return;
+    }
+
+    if (result.needsConfirmation) {
+      ctx.reply(`Command "${command}" requires confirmation.\nThis feature is coming in a future update.`);
+      return;
+    }
+
+    ctx.reply(result.output);
+  };
+}
+
+/**
+ * Handle /read command - read files with governance path checks
+ * Usage: /read ~/Documents/notes.txt
+ */
+function handleRead(config) {
+  return (ctx) => {
+    if (!isPaired(ctx, config)) return;
+
+    const text = ctx.message.text || '';
+    const filePath = text.replace(/^\/read\s*/, '').trim();
+
+    if (!filePath) {
+      ctx.reply('Usage: /read <path>\nExample: /read ~/Documents/notes.txt');
+      return;
+    }
+
+    const result = readFile(filePath, ctx.from.id);
+
+    if (result.denied) {
+      ctx.reply(`Denied: ${result.reason}`);
+      return;
+    }
+
+    ctx.reply(result.output);
+  };
+}
+
+/**
+ * Handle /skills command - list available skills
+ */
+function handleSkills(config) {
+  return (ctx) => {
+    if (!isPaired(ctx, config)) return;
+    ctx.reply(`Available skills:\n${listSkills()}`);
+  };
+}
+
+/**
+ * Handle /help command - show available commands
+ */
+function handleHelp(config) {
+  return (ctx) => {
+    if (!isPaired(ctx, config)) return;
+    ctx.reply([
+      'multis commands:',
+      '/exec <cmd> - Run a shell command',
+      '/read <path> - Read a file or list a directory',
+      '/skills - List available skills',
+      '/status - Bot info',
+      '/unpair - Remove pairing',
+      '/help - This message'
+    ].join('\n'));
+  };
+}
+
+/**
  * Handle all text messages - echo for POC1
  */
 function handleMessage(config) {
@@ -112,6 +200,10 @@ module.exports = {
   handleStart,
   handleStatus,
   handleUnpair,
+  handleExec,
+  handleRead,
+  handleSkills,
+  handleHelp,
   handleMessage,
   isPaired
 };

@@ -1,6 +1,6 @@
 const { Telegraf } = require('telegraf');
 const { logAudit } = require('../governance/audit');
-const { handleStart, handleStatus, handleUnpair, handleMessage } = require('./handlers');
+const { handleStart, handleStatus, handleUnpair, handleExec, handleRead, handleSkills, handleHelp, handleMessage } = require('./handlers');
 
 /**
  * Create and configure the Telegram bot
@@ -17,6 +17,10 @@ function createBot(config) {
   // Commands
   bot.start(handleStart(config));
   bot.command('status', handleStatus(config));
+  bot.command('exec', handleExec(config));
+  bot.command('read', handleRead(config));
+  bot.command('skills', handleSkills(config));
+  bot.command('help', handleHelp(config));
   bot.command('unpair', handleUnpair(config));
 
   // Echo all text messages
