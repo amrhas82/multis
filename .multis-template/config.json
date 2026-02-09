@@ -1,0 +1,25 @@
+{
+  "telegram_bot_token": "",
+  "pairing_code": "",
+  "allowed_users": [],
+  "llm": {
+    "provider": "anthropic",
+    "apiKey": "",
+    "model": "claude-sonnet-4-5-20250929",
+    "temperature": 0.7,
+    "maxTokens": 2048
+  },
+  "memory": {
+    "enabled": true,
+    "indexInterval": 300000,
+    "retentionDays": 90
+  },
+  "documents": {
+    "maxSize": 10485760,
+    "allowedTypes": ["pdf", "docx", "txt", "md"]
+  },
+  "governance": {
+    "enabled": true,
+    "auditLog": "~/.multis/audit.log"
+  }
+}

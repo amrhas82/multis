@@ -1,0 +1,23 @@
+node_modules/
+.env
+*.log
+*.db
+*.db-shm
+*.db-wal
+
+# User data (local instance)
+.multis/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/

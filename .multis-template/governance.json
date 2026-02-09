@@ -1,0 +1,60 @@
+{
+  "commands": {
+    "allowlist": [
+      "ls",
+      "pwd",
+      "cat",
+      "grep",
+      "find",
+      "df",
+      "du",
+      "ps",
+      "curl",
+      "git",
+      "npm",
+      "node",
+      "python",
+      "python3"
+    ],
+    "denylist": [
+      "rm",
+      "sudo",
+      "dd",
+      "mkfs",
+      "chmod",
+      "chown",
+      "kill",
+      "killall",
+      "shutdown",
+      "reboot"
+    ],
+    "requireConfirmation": [
+      "mv",
+      "cp",
+      "git push",
+      "npm publish",
+      "git rebase",
+      "git reset"
+    ]
+  },
+  "paths": {
+    "allowed": [
+      "~/Documents",
+      "~/Downloads",
+      "~/Projects",
+      "~/Desktop"
+    ],
+    "denied": [
+      "/etc",
+      "/var",
+      "/usr",
+      "/System",
+      "/bin",
+      "/sbin"
+    ]
+  },
+  "rateLimits": {
+    "messagesPerMinute": 10,
+    "commandsPerMinute": 5
+  }
+}
