@@ -1,8 +1,8 @@
 # multis
 
-**A personal chatbot and assistant that runs on your computer.**
+**A personal and business AI agent that lives in your chat apps** — answering questions from your documents, running commands on your machine, and auto-responding to contacts when you want it to.
 
-Control your laptop and ask questions about your documents—all from Telegram.
+Runs locally with persistent memory, governed by allowlists and audit logs.
 
 ## Why multis?
 
