@@ -63,6 +63,7 @@ Message arrives
 
 ### Beeper-specific
 
+- **Startup health check**: on server start, check if Beeper Desktop is running (hit `localhost:23373`). If not reachable, log warning and disable Beeper platform gracefully — don't crash. Re-check periodically or on-demand. (TODO: implement in polish pass or POC6 daemon)
 - **Self-chat detection**: at startup, identify chats with type=single + ≤1 participant
 - **Mode lookup**: `config.platforms.beeper.chat_modes[chatId]` → fallback to `default_mode`
 - **Self messages in personal chats**: routed as natural language (routeAs: 'natural')
@@ -112,11 +113,13 @@ Question → FTS5 search (top 5) → buildRAGPrompt(question, chunks) → LLM �
 
 All support `options.system` natively:
 
-| Provider | System prompt | Config |
-|----------|--------------|--------|
-| Anthropic | `body.system` field | `ANTHROPIC_API_KEY` |
-| OpenAI | `role: 'system'` message | `OPENAI_API_KEY` |
-| Ollama | `body.system` field | No key needed, local |
+| Provider | System prompt | Config | Base URL |
+|----------|--------------|--------|----------|
+| Anthropic | `body.system` field | `ANTHROPIC_API_KEY` | Hardcoded `api.anthropic.com` |
+| OpenAI | `role: 'system'` message | `OPENAI_API_KEY` | Hardcoded `api.openai.com` |
+| Ollama | `body.system` field | No key needed, local | Configurable (`OLLAMA_URL`) |
+
+**Known limitation:** OpenAI provider hostname is hardcoded — won't work with OpenAI-compatible APIs (GLM, Groq, Together, vLLM, local inference servers). Fix: add `baseUrl` config option to OpenAI provider so any compatible endpoint works. Same interface, different hostname. Ollama already supports this.
 
 ---
 

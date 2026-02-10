@@ -71,11 +71,13 @@ Question → FTS5 Search (top 5) → buildRAGPrompt → LLM → Answer
 
 All providers support `options.system` for the system prompt:
 
-| Provider | System Prompt Method |
-|----------|---------------------|
-| Anthropic | Native `system` field in API body |
-| OpenAI | `{ role: 'system' }` message |
-| Ollama | Native `system` field in generate API |
+| Provider | System Prompt Method | Base URL |
+|----------|---------------------|----------|
+| Anthropic | Native `system` field in API body | Hardcoded `api.anthropic.com` |
+| OpenAI | `{ role: 'system' }` message | Hardcoded `api.openai.com` |
+| Ollama | Native `system` field in generate API | Configurable (`OLLAMA_URL`) |
+
+**Limitation:** OpenAI provider won't work with OpenAI-compatible APIs (GLM, Groq, Together, vLLM) because hostname is hardcoded. Needs `baseUrl` config (polish pass). Ollama already supports custom base URL.
 
 ## Commands
 

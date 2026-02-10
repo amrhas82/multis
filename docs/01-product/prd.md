@@ -70,9 +70,12 @@
 - Per-chat mode persisted to `config.platforms.beeper.chat_modes[chatId]`
 - Beeper self-chat detection + natural language routing via `msg.routeAs`
 
+**Validated:** 2026-02-10 — live Anthropic API (Haiku 4.5), full router path (not just LLM client). Tested: `/ask`, natural language routing, RAG prompt builder with citations, `//mode`, auth blocking, `/help`.
+
 **Findings:**
 - Platform abstraction (done early in POC7 partial) made this easy — router doesn't care about source
 - Chat modes solve the "Beeper sees all chats" problem — user controls which chats are active
+- Provider hostnames are hardcoded — OpenAI provider can't reach GLM/Groq/Together/vLLM. Needs `baseUrl` option (polish pass)
 
 ---
 
@@ -92,6 +95,8 @@
 - Beeper E2EE is a dead end for bots — Desktop localhost API bypasses it
 - `//` prefix for Beeper is intuitive — looks like a command but doesn't conflict with any chat app
 - Polling at 3s is fast enough, not wasteful
+
+**TODO (polish pass or POC6):** On server startup, check if Beeper Desktop is running (hit `localhost:23373`). If not reachable, log warning and disable Beeper gracefully — don't crash. Re-check periodically.
 
 ---
 
