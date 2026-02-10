@@ -4,11 +4,12 @@
 
 ### [00-context/](00-context/) — Why and What Exists
 - [vision.md](00-context/vision.md) — Product purpose and boundaries
+- [blueprint.md](00-context/blueprint.md) — Master reference: all decisions, flows, architecture
 - [assumptions.md](00-context/assumptions.md) — Constraints, risks, unknowns
 - [system-state.md](00-context/system-state.md) — Architecture and what's currently built
 
 ### [01-product/](01-product/) — What the Product Must Do
-- [prd.md](01-product/prd.md) — POC roadmap and requirements
+- [prd.md](01-product/prd.md) — All POCs: completed, planned, findings, designs
 
 ### [02-features/](02-features/) — How Features Are Designed
 - [multi-platform.md](02-features/multi-platform.md) — Telegram + Beeper + Matrix strategy
