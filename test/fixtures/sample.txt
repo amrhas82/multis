@@ -1,0 +1,3 @@
+This is a plain text document about widgets.
+Widgets are versatile components used in modern applications.
+They provide interactive UI elements for end users.
