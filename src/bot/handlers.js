@@ -28,11 +28,11 @@ function isPaired(msgOrCtx, config) {
  * Main message dispatcher for all platforms.
  * Takes a normalized Message and routes to the appropriate handler.
  */
-function createMessageRouter(config) {
-  const indexer = new DocumentIndexer();
-  const memoryManagers = new Map();
-  const pinManager = new PinManager(config);
-  const escalationRetries = new Map(); // chatId -> retry count
+function createMessageRouter(config, deps = {}) {
+  const indexer = deps.indexer || new DocumentIndexer();
+  const memoryManagers = deps.memoryManagers || new Map();
+  const pinManager = deps.pinManager || new PinManager(config);
+  const escalationRetries = deps.escalationRetries || new Map();
 
   // Memory config defaults
   const memCfg = {
@@ -42,13 +42,15 @@ function createMessageRouter(config) {
   };
 
   // Create LLM client if configured (null if no API key)
-  let llm = null;
-  try {
-    if (config.llm?.apiKey || config.llm?.provider === 'ollama') {
-      llm = createLLMClient(config.llm);
+  let llm = deps.llm || null;
+  if (!llm) {
+    try {
+      if (config.llm?.apiKey || config.llm?.provider === 'ollama') {
+        llm = createLLMClient(config.llm);
+      }
+    } catch (err) {
+      console.warn(`LLM init skipped: ${err.message}`);
     }
-  } catch (err) {
-    console.warn(`LLM init skipped: ${err.message}`);
   }
 
   // Owner commands that require PIN auth
@@ -97,7 +99,7 @@ function createMessageRouter(config) {
       // Re-route the stored command
       msg = stored.msg;
       // Fall through to command handling below with stored command/args
-      await executeCommand(stored.command, stored.args, msg, platform, config, indexer, llm, memoryManagers, memCfg, pinManager);
+      await executeCommand(stored.command, stored.args, msg, platform, config, indexer, llm, memoryManagers, memCfg, pinManager, escalationRetries);
       return;
     }
 
@@ -136,11 +138,11 @@ function createMessageRouter(config) {
       }
     }
 
-    await executeCommand(command, args, msg, platform, config, indexer, llm, memoryManagers, memCfg, pinManager);
+    await executeCommand(command, args, msg, platform, config, indexer, llm, memoryManagers, memCfg, pinManager, escalationRetries);
   };
 }
 
-async function executeCommand(command, args, msg, platform, config, indexer, llm, memoryManagers, memCfg, pinManager) {
+async function executeCommand(command, args, msg, platform, config, indexer, llm, memoryManagers, memCfg, pinManager, escalationRetries) {
     switch (command) {
       case 'status':
         await routeStatus(msg, platform, config);
