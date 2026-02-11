@@ -48,6 +48,10 @@ Extend LLMProvider in src/llm/base.js, add to client.js factory, add env var to 
 Node.js only, single user, offline except LLM calls. Beeper Desktop API may change.
 -> docs/00-context/assumptions.md
 
+## Testing
+168 tests: 106 unit, 62 integration, 0 automated e2e. Coverage analysis, gap tracking, manual smoke checklist.
+-> docs/04-process/testing-guide.md
+
 ## Key Decisions
 9 decisions logged: Node.js over Python, Telegram mandatory, Beeper Matrix rejected, Desktop API accepted, SQLite FTS5, chat modes, implicit ask.
 -> docs/03-logs/decisions-log.md
