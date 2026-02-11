@@ -24,8 +24,8 @@ function loadGovernance() {
  * @param {string} command - Full command string (e.g., "ls -la ~/Documents")
  * @returns {Object} - { allowed: boolean, reason?: string, requiresConfirmation: boolean }
  */
-function isCommandAllowed(command) {
-  const gov = loadGovernance();
+function isCommandAllowed(command, gov = null) {
+  gov = gov || loadGovernance();
   const parts = command.trim().split(/\s+/);
   const baseCmd = parts[0];
 
@@ -62,8 +62,8 @@ function isCommandAllowed(command) {
  * @param {string} filePath - Path to check
  * @returns {Object} - { allowed: boolean, reason?: string }
  */
-function isPathAllowed(filePath) {
-  const gov = loadGovernance();
+function isPathAllowed(filePath, gov = null) {
+  gov = gov || loadGovernance();
   const expandedPath = filePath.replace(/^~/, process.env.HOME || process.env.USERPROFILE);
 
   // Check denied paths first
