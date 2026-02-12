@@ -78,9 +78,11 @@ Borrowed the good parts — daemon architecture, pairing flow, skill.md pattern 
 - [x] POC 2: Skills (shell exec, file read, governance)
 - [x] POC 3: Document indexing (PDF/DOCX → FTS5)
 - [x] POC 4: LLM RAG + chat modes
-- [ ] POC 5: Memory (ACT-R activation decay + memory.md)
-- [ ] POC 6: Daemon + CLI onboarding
-- [ ] POC 7: Multi-platform (Beeper Desktop + self-hosted Matrix)
+- [x] POC 5: Memory (ACT-R activation decay + memory.md)
+- [x] POC 6: Daemon + CLI + security + data isolation
+- [ ] Dogfood: End-to-end testing, polish, daily use
+- [ ] v0.2: Packaging, onboarding docs, `npm install -g` ready
+- [ ] POC 7: Multi-platform (Beeper Desktop + self-hosted Matrix) — deferred
 
 ## Tech Stack
 

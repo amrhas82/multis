@@ -56,6 +56,10 @@ Node.js only, single user, offline except LLM calls. Beeper Desktop API may chan
 243 tests: 181 unit, 62 integration, 0 automated e2e. Coverage analysis, gap tracking, manual smoke checklist.
 -> docs/04-process/testing-guide.md
 
+## Roadmap
+Post-POC phases: A (dogfood & stabilize), B (ship v0.2), C (feature gaps), D (multi-platform). Actionable checklists per phase.
+-> docs/04-process/roadmap.md
+
 ## Key Decisions
 9 decisions logged: Node.js over Python, Telegram mandatory, Beeper Matrix rejected, Desktop API accepted, SQLite FTS5, chat modes, implicit ask.
 -> docs/03-logs/decisions-log.md
