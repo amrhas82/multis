@@ -1,6 +1,6 @@
 {
   "name": "multis",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A personal chatbot and assistant that runs on your computer",
   "main": "src/index.js",
   "bin": {
@@ -19,8 +19,16 @@
     "rag",
     "local-first"
   ],
-  "author": "",
+  "author": "hamr0",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hamr0/multis.git"
+  },
+  "homepage": "https://github.com/hamr0/multis#readme",
+  "bugs": {
+    "url": "https://github.com/hamr0/multis/issues"
+  },
   "engines": {
     "node": ">=20.0.0"
   },
