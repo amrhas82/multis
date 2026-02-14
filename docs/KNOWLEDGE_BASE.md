@@ -26,10 +26,10 @@ Document upload/index -> FTS5 search -> buildRAGPrompt -> LLM -> answer with cit
 
 ## Memory and Indexing (comprehensive)
 Document indexing (parse → chunk → store), conversation memory (capture → summarize → index), search (FTS5 + ACT-R), scope enforcement, RAG prompt composition. End-to-end reference.
--> docs/02-features/memory-indexing.md
+-> docs/02-features/memory.md
 
 ## Chat Modes
-Beeper per-chat modes: personal (self-chat, natural language) vs business (auto-respond to others).
+Three per-chat modes: personal (admin, commands), business (auto-respond, customer-safe), silent (archive only). Set by owner + PIN.
 -> docs/02-features/chat-modes.md
 
 ## Bot Commands
