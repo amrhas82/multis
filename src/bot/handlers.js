@@ -16,8 +16,8 @@ const { detectInjection, logInjectionAttempt } = require('../security/injection'
 function isPaired(msgOrCtx, config) {
   // Beeper: self-sent messages are always trusted (already filtered by platform)
   if (msgOrCtx.isSelf) return true;
-  const userId = msgOrCtx.senderId !== undefined ? msgOrCtx.senderId : msgOrCtx.from?.id;
-  return config.allowed_users.includes(userId);
+  const userId = String(msgOrCtx.senderId !== undefined ? msgOrCtx.senderId : msgOrCtx.from?.id);
+  return config.allowed_users.map(String).includes(userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -54,12 +54,23 @@ function createMessageRouter(config, deps = {}) {
   }
 
   // Owner commands that require PIN auth
-  const PIN_PROTECTED = new Set(['exec', 'read', 'index']);
+  const PIN_PROTECTED = new Set(['exec', 'read', 'index', 'mode']);
 
   return async (msg, platform) => {
     // Handle Telegram document uploads
     if (msg._document) {
       await handleDocumentUpload(msg, platform, config, indexer);
+      return;
+    }
+
+    // Silent mode: archive to memory, no response
+    if (msg.routeAs === 'silent') {
+      const mem = memoryManagers ? getMemoryManager(memoryManagers, msg.chatId, { isAdmin: false }) : null;
+      if (mem) {
+        const role = msg.isSelf ? 'user' : 'contact';
+        mem.appendMessage(role, msg.text);
+        mem.appendToLog(role, msg.text);
+      }
       return;
     }
 
@@ -101,6 +112,26 @@ function createMessageRouter(config, deps = {}) {
       // Fall through to command handling below with stored command/args
       await executeCommand(stored.command, stored.args, msg, platform, config, indexer, llm, memoryManagers, memCfg, pinManager, escalationRetries);
       return;
+    }
+
+    // Handle pending mode selection (interactive picker reply)
+    if (config._pendingMode?.[msg.senderId] && /^\d+$/.test(text.trim())) {
+      const pending = config._pendingMode[msg.senderId];
+      const idx = parseInt(text.trim(), 10) - 1;
+      if (idx >= 0 && idx < pending.matches.length) {
+        const chat = pending.matches[idx];
+        setChatMode(config, chat.id, pending.mode);
+        delete config._pendingMode[msg.senderId];
+        await platform.send(msg.chatId, `${chat.title || chat.id} set to: ${pending.mode}`);
+        logAudit({ action: 'mode', user_id: msg.senderId, chatId: chat.id, mode: pending.mode });
+      } else {
+        await platform.send(msg.chatId, `Invalid choice. Pick 1-${pending.matches.length}.`);
+      }
+      return;
+    }
+    // Clear stale pending mode if user sends something else
+    if (config._pendingMode?.[msg.senderId]) {
+      delete config._pendingMode[msg.senderId];
     }
 
     if (!msg.isCommand()) return;
@@ -262,12 +293,15 @@ async function routeStart(msg, platform, config, code) {
   }
 
   if (code.toUpperCase() === config.pairing_code.toUpperCase()) {
-    addAllowedUser(userId);
-    config.allowed_users.push(userId);
-    if (!config.owner_id) config.owner_id = userId;
-    const role = config.owner_id === userId ? 'owner' : 'user';
+    const id = String(userId);
+    addAllowedUser(id);
+    if (!config.allowed_users.map(String).includes(id)) {
+      config.allowed_users.push(id);
+    }
+    if (!config.owner_id) config.owner_id = id;
+    const role = String(config.owner_id) === id ? 'owner' : 'user';
     await platform.send(msg.chatId, `Paired successfully as ${role}! Welcome, ${username}.`);
-    logAudit({ action: 'pair', user_id: userId, username, status: 'success', platform: msg.platform });
+    logAudit({ action: 'pair', user_id: id, username, status: 'success', platform: msg.platform });
   } else {
     await platform.send(msg.chatId, 'Invalid pairing code. Try again.');
     logAudit({ action: 'pair', user_id: userId, username, status: 'invalid_code' });
@@ -595,23 +629,127 @@ async function routeRemember(msg, platform, config, memoryManagers, note) {
   logAudit({ action: 'remember', user_id: msg.senderId, chatId: msg.chatId, note });
 }
 
-async function routeMode(msg, platform, config, mode) {
-  if (!mode || !['personal', 'business'].includes(mode.trim().toLowerCase())) {
-    const prefix = msg.platform === 'telegram' ? '/' : '//';
-    await platform.send(msg.chatId, `Usage: ${prefix}mode <personal|business>`);
+const VALID_MODES = ['personal', 'business', 'silent'];
+
+async function routeMode(msg, platform, config, args) {
+  // Owner-only (PIN already checked by router for owner commands)
+  if (!isOwner(msg.senderId, config)) {
+    await platform.send(msg.chatId, 'Owner only command.');
     return;
   }
 
-  mode = mode.trim().toLowerCase();
+  const parts = (args || '').trim().split(/\s+/);
+  const mode = parts[0] ? parts[0].toLowerCase() : '';
+  const target = parts.slice(1).join(' ');
+
+  const prefix = msg.platform === 'telegram' ? '/' : '//';
+
+  if (!mode || !VALID_MODES.includes(mode)) {
+    await platform.send(msg.chatId,
+      `Usage: ${prefix}mode <personal|business|silent> [target]\n\n` +
+      'Modes:\n' +
+      '  personal — admin, commands enabled\n' +
+      '  business — auto-respond, customer-safe\n' +
+      '  silent   — archive only, no bot output\n\n' +
+      `From self-chat: ${prefix}mode silent (interactive picker)\n` +
+      `From self-chat: ${prefix}mode silent John (search by name)\n` +
+      `In any chat: ${prefix}mode business (sets current chat)`
+    );
+    return;
+  }
+
+  // If on Telegram, always set current chat (1:1 with bot)
+  if (msg.platform === 'telegram') {
+    setChatMode(config, msg.chatId, mode);
+    await platform.send(msg.chatId, `Chat mode set to: ${mode}`);
+    logAudit({ action: 'mode', user_id: msg.senderId, chatId: msg.chatId, mode });
+    return;
+  }
+
+  // Beeper: if target specified, search for chat by name/number
+  if (target) {
+    const match = await findBeeperChat(platform, target);
+    if (!match) {
+      await platform.send(msg.chatId, `No chat found matching "${target}".`);
+      return;
+    }
+    if (match.length > 1) {
+      const list = match.map((c, i) => `  ${i + 1}) ${c.title || c.name || c.id}`).join('\n');
+      // Store pending mode selection
+      if (!config._pendingMode) config._pendingMode = {};
+      config._pendingMode[msg.senderId] = { mode, matches: match };
+      await platform.send(msg.chatId, `Multiple matches:\n${list}\n\nReply with a number:`);
+      return;
+    }
+    const chat = match[0];
+    setChatMode(config, chat.id, mode);
+    await platform.send(msg.chatId, `${chat.title || chat.id} set to: ${mode}`);
+    logAudit({ action: 'mode', user_id: msg.senderId, chatId: chat.id, mode, target });
+    return;
+  }
+
+  // Beeper: no target — if in self-chat, show interactive picker
+  if (msg.isSelf) {
+    const chats = await listBeeperChats(platform);
+    if (!chats || chats.length === 0) {
+      await platform.send(msg.chatId, 'No chats found.');
+      return;
+    }
+    const list = chats.map((c, i) => {
+      const currentMode = getChatMode(config, c.id);
+      return `  ${i + 1}) ${c.title || c.name || c.id} [${currentMode}]`;
+    }).join('\n');
+    // Store pending mode selection
+    if (!config._pendingMode) config._pendingMode = {};
+    config._pendingMode[msg.senderId] = { mode, matches: chats };
+    await platform.send(msg.chatId, `Pick a chat to set to ${mode}:\n${list}\n\nReply with a number:`);
+    return;
+  }
+
+  // Beeper: no target, not self-chat — set current chat
+  setChatMode(config, msg.chatId, mode);
+  await platform.send(msg.chatId, `Chat mode set to: ${mode}`);
+  logAudit({ action: 'mode', user_id: msg.senderId, chatId: msg.chatId, mode });
+}
+
+function setChatMode(config, chatId, mode) {
   if (!config.platforms) config.platforms = {};
   if (!config.platforms.beeper) config.platforms.beeper = {};
   if (!config.platforms.beeper.chat_modes) config.platforms.beeper.chat_modes = {};
-
-  config.platforms.beeper.chat_modes[msg.chatId] = mode;
+  config.platforms.beeper.chat_modes[chatId] = mode;
   saveConfig(config);
+}
 
-  await platform.send(msg.chatId, `Chat mode set to: ${mode}`);
-  logAudit({ action: 'mode', user_id: msg.senderId, chatId: msg.chatId, mode });
+function getChatMode(config, chatId) {
+  const modes = config.platforms?.beeper?.chat_modes;
+  if (modes && modes[chatId]) return modes[chatId];
+  return config.bot_mode || 'personal';
+}
+
+async function listBeeperChats(platform) {
+  if (!platform._api) return null;
+  try {
+    const data = await platform._api('GET', '/v1/chats?limit=20');
+    const chats = data.items || [];
+    return chats.map(c => ({
+      id: c.id || c.chatID,
+      title: c.title || c.name || '',
+      network: c.network || '',
+    })).filter(c => c.id);
+  } catch {
+    return null;
+  }
+}
+
+async function findBeeperChat(platform, search) {
+  const chats = await listBeeperChats(platform);
+  if (!chats) return null;
+  const q = search.toLowerCase();
+  const matches = chats.filter(c =>
+    (c.title && c.title.toLowerCase().includes(q)) ||
+    (c.id && c.id.toLowerCase().includes(q))
+  );
+  return matches.length > 0 ? matches : null;
 }
 
 async function routeHelp(msg, platform, config) {
@@ -625,7 +763,6 @@ async function routeHelp(msg, platform, config) {
     `${prefix}memory - Show conversation memory`,
     `${prefix}remember <note> - Save a note to memory`,
     `${prefix}forget - Clear conversation memory`,
-    `${prefix}mode <personal|business> - Set chat mode (Beeper)`,
     `${prefix}skills - List available skills`,
     `${prefix}unpair - Remove pairing`,
     `${prefix}help - This message`,
@@ -638,6 +775,7 @@ async function routeHelp(msg, platform, config) {
       `${prefix}read <path> - Read a file or directory (owner)`,
       `${prefix}index <path> <kb|admin> - Index a document (owner)`,
       `${prefix}pin - Change PIN (owner)`,
+      `${prefix}mode <personal|business|silent> - Set chat mode (owner)`,
       'Send a file to index it (owner, Telegram only)'
     );
   }
@@ -704,12 +842,15 @@ function handleStart(config) {
     }
 
     if (code.toUpperCase() === config.pairing_code.toUpperCase()) {
-      addAllowedUser(userId);
-      config.allowed_users.push(userId);
-      if (!config.owner_id) config.owner_id = userId;
-      const role = config.owner_id === userId ? 'owner' : 'user';
+      const id = String(userId);
+      addAllowedUser(id);
+      if (!config.allowed_users.map(String).includes(id)) {
+        config.allowed_users.push(id);
+      }
+      if (!config.owner_id) config.owner_id = id;
+      const role = String(config.owner_id) === id ? 'owner' : 'user';
       ctx.reply(`Paired successfully as ${role}! Welcome, ${username}.`);
-      logAudit({ action: 'pair', user_id: userId, username, status: 'success' });
+      logAudit({ action: 'pair', user_id: id, username, status: 'success' });
     } else {
       ctx.reply('Invalid pairing code. Try again.');
       logAudit({ action: 'pair', user_id: userId, username, status: 'invalid_code', code_given: code });
@@ -798,6 +939,7 @@ function handleHelp(config) {
         '/exec <cmd> - Run a shell command (owner)',
         '/read <path> - Read a file or directory (owner)',
         '/index <path> - Index a document (owner)',
+        '/mode <personal|business|silent> - Set chat mode (owner)',
         'Send a file to index it (owner)'
       );
     }

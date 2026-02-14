@@ -3,6 +3,7 @@
   "pairing_code": "",
   "owner_id": null,
   "allowed_users": [],
+  "bot_mode": "personal",
   "platforms": {
     "telegram": {
       "enabled": true,

@@ -11,7 +11,7 @@ class OpenAIProvider extends LLMProvider {
     super();
     this.apiKey = apiKey;
     this.model = model;
-    this.baseUrl = baseUrl.replace(/\/+$/, '');
+    this.baseUrl = (baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
   }
 
   async generate(prompt, options = {}) {

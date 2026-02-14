@@ -90,6 +90,16 @@ async function runInit() {
   if (!config.platforms) config.platforms = {};
 
   // -----------------------------------------------------------------------
+  // Step 1b: Bot mode (personal or business)
+  // -----------------------------------------------------------------------
+  console.log('\nHow will you use this bot?');
+  console.log('  1) Personal  — your private assistant, all chats silent by default');
+  console.log('  2) Business  — customer support, all chats auto-respond by default');
+  const modeChoice = (await ask('\nChoose (1/2) [1]: ')).trim() || '1';
+  config.bot_mode = modeChoice === '2' ? 'business' : 'personal';
+  summary.botMode = config.bot_mode;
+
+  // -----------------------------------------------------------------------
   // Step 2a: Telegram setup
   // -----------------------------------------------------------------------
   if (useTelegram) {
@@ -426,6 +436,7 @@ async function runInit() {
   }
 
   console.log(`Config saved to ${CONFIG_PATH}\n`);
+  console.log(`  Mode:      ${summary.botMode}`);
   if (summary.telegram) console.log(`  Telegram:  ${summary.telegram}`);
   if (summary.beeper) console.log(`  Beeper:    ${summary.beeper}`);
   if (summary.llm) console.log(`  LLM:       ${summary.llm}`);
@@ -591,11 +602,21 @@ async function runDoctor() {
   });
 
   // LLM
-  check('LLM provider', () => {
+  // LLM check — async, verify actual connectivity
+  {
     const provider = config?.llm?.provider;
     const hasKey = config?.llm?.apiKey || provider === 'ollama';
-    return { ok: !!provider && !!hasKey, detail: `${provider || 'none'}${hasKey ? '' : ' (no API key)'}` };
-  });
+    if (!provider || !hasKey) {
+      checks.push({ name: 'LLM provider', ok: false, detail: `${provider || 'none'}${hasKey ? '' : ' (no API key)'}` });
+    } else {
+      try {
+        await verifyLLM(config.llm);
+        checks.push({ name: 'LLM provider', ok: true, detail: `${provider} — verified` });
+      } catch (err) {
+        checks.push({ name: 'LLM provider', ok: false, detail: `${provider} — ${err.message}` });
+      }
+    }
+  }
 
   // SQLite DB
   check('SQLite database', () => {

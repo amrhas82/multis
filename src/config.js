@@ -159,13 +159,14 @@ function saveConfig(config) {
  * First paired user automatically becomes owner.
  */
 function addAllowedUser(userId) {
+  const id = String(userId);
   const config = loadConfig();
-  if (!config.allowed_users.includes(userId)) {
-    config.allowed_users.push(userId);
+  if (!config.allowed_users.map(String).includes(id)) {
+    config.allowed_users.push(id);
   }
   // First paired user becomes owner
   if (!config.owner_id) {
-    config.owner_id = userId;
+    config.owner_id = id;
   }
   saveConfig(config);
   return config;
@@ -175,7 +176,7 @@ function addAllowedUser(userId) {
  * Check if a user is the owner
  */
 function isOwner(userId, config) {
-  return config.owner_id === userId;
+  return String(config.owner_id) === String(userId);
 }
 
 module.exports = {

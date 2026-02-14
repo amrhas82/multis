@@ -13,22 +13,29 @@ Start from scratch as if you're a new user. Validates the full install → first
 - [ ] `rm -rf ~/.multis` (clean slate)
 - [ ] `npm install` from repo root
 - [ ] `node bin/multis.js init` — complete the wizard
-  - Does it create `~/.multis/config.json`?
-  - Does it generate a pairing code?
-  - Does it prompt for PIN?
-  - Does it ask about Beeper?
+  - [ ] Platform selection (Telegram / Beeper / Both)?
+  - [ ] Bot mode (personal / business)?
+  - [ ] Telegram token → verified? Bot username shown?
+  - [ ] Inline pairing → sent /start → paired as owner?
+  - [ ] LLM provider → key verified with real API call?
+  - [ ] PIN set?
+  - [ ] Summary shows all verified components?
+  - [ ] `~/.multis/config.json` created with correct values?
+  - [ ] `owner_id` set from inline pairing?
 - [ ] `node bin/multis.js start` — does the daemon start?
 - [ ] `node bin/multis.js status` — shows running PID?
 - [ ] `node bin/multis.js doctor` — all checks pass?
+  - [ ] LLM check does real verification (not just key presence)?
 
 ### A2. Telegram End-to-End
 
-- [ ] Open @multis02bot on Telegram
-- [ ] `/start <pairing_code>` — pairs as owner?
-- [ ] `/status` — shows bot info, role: owner?
-- [ ] `/help` — shows all commands including owner commands?
+- [ ] Open bot on Telegram
+- [ ] Already paired from init? (no `/start <code>` needed)
+- [ ] `/status` — shows `Role: owner`?
+- [ ] `/help` — shows owner commands (exec, read, index, pin, mode)?
 - [ ] `/exec ls ~` — triggers PIN prompt? Enter PIN → output?
 - [ ] `/exec echo hello` — governance allows it?
+- [ ] `/mode personal` — requires PIN? Sets mode?
 - [ ] `/read ~/.multis/config.json` — shows file content?
 - [ ] Upload a PDF file — auto-indexed? Reports chunk count?
 - [ ] `/index ~/some-real-doc.pdf kb` — indexes with scope?
@@ -46,12 +53,20 @@ Start from scratch as if you're a new user. Validates the full install → first
 - [ ] `node src/cli/setup-beeper.js` — OAuth flow works?
 - [ ] Beeper Desktop running with API enabled?
 - [ ] `node bin/multis.js start` — Beeper connects, shows account count?
-- [ ] Send `//status` from a Beeper chat — responds?
+- [ ] Send `//status` from a self-chat — responds?
 - [ ] Send `//help` — shows commands?
-- [ ] Type a question in a personal/self chat (no `//`) — implicit ask works?
+- [ ] Type a question in self-chat (no `//`) — implicit ask works?
 - [ ] `//exec ls ~` — PIN → output?
 - [ ] `//search <term>` — finds docs?
-- [ ] Send a message from another contact in a business-mode chat — auto-responds?
+
+#### Mode tests (Beeper)
+
+- [ ] `//mode business` from self-chat → interactive picker? Pick a chat → set?
+- [ ] `//mode silent John` from self-chat → search by name → set?
+- [ ] `//mode business` in a non-self chat → sets current chat directly?
+- [ ] Send message from contact in business-mode chat → auto-responds?
+- [ ] Send message from friend in silent-mode chat → archived but no response?
+- [ ] `/mode personal` from self-chat → set a chat as personal for second admin?
 
 ### A4. Edge Cases & Error Handling
 
@@ -65,6 +80,8 @@ Start from scratch as if you're a new user. Validates the full install → first
 - [ ] Run `multis start` twice — second one says already running?
 - [ ] No LLM API key set — `/ask` gives helpful error?
 - [ ] No internet — bot stays alive, reconnects?
+- [ ] Non-owner tries `/mode business` — rejected?
+- [ ] Non-owner tries `/exec` — rejected?
 
 ### A5. Bug & Friction Log
 
@@ -106,7 +123,6 @@ After dogfooding, prepare for others to install.
 Only tackle these if dogfooding reveals they matter.
 
 - [ ] Tier 2 PDF parsing (font-size heading detection)
-- [ ] `/mode` command for Beeper chat mode switching
 - [ ] File upload indexing on Beeper (not just Telegram)
 - [ ] Cleanup cron wired into daemon startup
 - [ ] ACT-R activation visible in `/search` results

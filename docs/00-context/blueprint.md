@@ -49,6 +49,9 @@ Message arrives
   │
   ├─ Starts with [multis] → SKIP (our own response)
   │
+  ├─ msg.routeAs === 'silent'? (chat in silent mode)
+  │   └─ YES → archive to memory (appendMessage + appendToLog), NO response
+  │
   ├─ Is a command? (/ on Telegram, // on Beeper)
   │   └─ YES → parse command → switch (ask, mode, exec, read, index, search, ...)
   │
@@ -73,16 +76,42 @@ Message arrives
 
 ## 3. Chat Modes
 
-Two modes, per-chat, switchable anytime:
+Three modes, per-chat, switchable anytime. Global `bot_mode` (personal or business) set at init determines the default for unset chats.
 
-| Mode | Self messages | Incoming messages | Use case |
-|------|--------------|-------------------|----------|
-| **personal** (default) | Commands + natural ask | Ignored | Your notes, research, personal docs |
-| **business** | Commands + natural ask | Auto-respond via LLM | Customer support, business contacts |
+| Mode | Self messages | Incoming messages | Admin commands | Use case |
+|------|--------------|-------------------|----------------|----------|
+| **personal** | Commands + natural ask | Ignored | Yes (with PIN) | Your notes, research, trusted admins |
+| **business** | Commands + natural ask | Auto-respond via LLM | No | Customer support, business contacts |
+| **silent** | Ignored | Archived to memory | No | Friends — passive capture, no bot output |
 
-**Set via:** `//mode personal` or `//mode business`
+Self-chats (note-to-self, WhatsApp self) are auto-detected as **personal**.
+
+### Setting modes
+
+- **Owner + PIN required** to change any chat's mode
+- `//mode <mode>` in a chat → sets that chat directly
+- `//mode <mode>` in self-chat → interactive picker (lists recent chats)
+- `//mode <mode> <name>` in self-chat → search by name/number
+- On Telegram: `/mode <mode>` sets current chat (all chats are 1:1)
+
+### Privilege model
+
+| Context | Admin commands? | Scope | Bot responds? |
+|---------|----------------|-------|---------------|
+| Owner in any chat | Yes | All | To commands |
+| Personal-mode chat | Yes | All | To commands |
+| Business-mode chat | No | kb + user:chatId | Auto to all incoming |
+| Silent-mode chat | No | n/a | Never |
+
+### Default behavior by bot_mode
+
+| `bot_mode` | New Beeper chats default to | Telegram |
+|------------|----------------------------|----------|
+| **personal** | silent (archive only) | personal (owner's 1:1) |
+| **business** | business (auto-respond) | personal (owner's 1:1) |
+
 **Persisted to:** `config.platforms.beeper.chat_modes[chatId]`
-**Onboarding sets:** `default_mode` (personal or business) — just a default, every chat can override
+**Fallback chain:** per-chat mode → beeper `default_mode` → global `bot_mode` → 'personal'
 
 ---
 
@@ -116,10 +145,10 @@ All support `options.system` natively:
 | Provider | System prompt | Config | Base URL |
 |----------|--------------|--------|----------|
 | Anthropic | `body.system` field | `ANTHROPIC_API_KEY` | Hardcoded `api.anthropic.com` |
-| OpenAI | `role: 'system'` message | `OPENAI_API_KEY` | Hardcoded `api.openai.com` |
+| OpenAI | `role: 'system'` message | `OPENAI_API_KEY` | Configurable `baseUrl` (default `api.openai.com`) |
 | Ollama | `body.system` field | No key needed, local | Configurable (`OLLAMA_URL`) |
 
-**Known limitation:** OpenAI provider hostname is hardcoded — won't work with OpenAI-compatible APIs (GLM, Groq, Together, vLLM, local inference servers). Fix: add `baseUrl` config option to OpenAI provider so any compatible endpoint works. Same interface, different hostname. Ollama already supports this.
+**OpenAI-compatible APIs:** Any endpoint that speaks the OpenAI chat completions API works — set `baseUrl` in config (e.g. `https://openrouter.ai/api/v1` for OpenRouter, Together, Groq, GLM, vLLM, etc.). Stored as `provider: "openai"` with custom `baseUrl`.
 
 ---
 
@@ -347,9 +376,11 @@ Owner command arrives
 - Prompt injection attempts: `~/.multis/prompt_injection_audit.log` (separate file)
 
 ### Owner model
-- First paired user becomes owner
-- Owner-only (requires PIN): `/exec`, `/read`, `/index`
+- First paired user becomes owner (set during init via inline Telegram pairing)
+- Owner-only (requires PIN): `/exec`, `/read`, `/index`, `/mode`
 - Everyone else: `/ask`, `/search`, `/docs`, `/status`, `/help`
+- Personal-mode chats get admin privileges (owner can grant via `/mode personal`)
+- All user IDs stored and compared as strings (Telegraf sends numbers, config stores strings)
 
 ---
 
@@ -441,16 +472,38 @@ Chat is the primary interface. CLI is just for lifecycle management.
 
 ### `multis init`
 
+Full onboarding wizard — init finishes = everything works.
+
 ```
 multis init
   │
-  ├─ Choose: personal or business → sets default_mode
-  ├─ Telegram bot token → saved to config
-  ├─ LLM provider + API key → saved to config/.env
-  ├─ Set admin PIN (4-6 digits) → hashed, saved to config
-  ├─ Beeper Desktop? → optional, runs setup-beeper.js
-  └─ Generate pairing code → printed to terminal
+  ├─ Step 1a: Platform selection (Telegram / Beeper / Both)
+  ├─ Step 1b: Bot mode (personal / business) → sets bot_mode
+  │
+  ├─ Step 2a: Telegram setup (if selected)
+  │   ├─ Paste token → format validation → getMe() verification
+  │   ├─ Print "Token verified — bot is @username"
+  │   ├─ Wait for /start (60s) → auto-pair as owner
+  │   └─ Timeout: warn, continue (pair later)
+  │
+  ├─ Step 2b: Beeper setup (if selected)
+  │   ├─ Check Desktop API at localhost:23373
+  │   ├─ OAuth PKCE flow (reuses setup-beeper.js exports)
+  │   ├─ List connected accounts
+  │   └─ Show always-on warnings + recovery key reminder
+  │
+  ├─ Step 3: LLM provider
+  │   ├─ 1) Anthropic → ask key → verify with real API call
+  │   ├─ 2) OpenAI → ask key → verify
+  │   ├─ 3) OpenAI-compatible → ask base URL + model + key → verify
+  │   └─ 4) Ollama → check localhost:11434 reachable
+  │
+  ├─ Step 4: PIN (4-6 digits, optional)
+  │
+  └─ Step 5: Save config + summary with verification status
 ```
+
+Each platform and LLM provider is verified inline before moving on. No "next steps" the user can forget.
 
 ### Daemon startup
 
@@ -495,8 +548,9 @@ All behavioral settings are configurable. Sane defaults applied when missing.
 ```json
 {
   "pairing_code": "F71A9B",
-  "owner_id": 8503143603,
-  "allowed_users": [8503143603],
+  "owner_id": "8503143603",
+  "allowed_users": ["8503143603"],
+  "bot_mode": "personal",
   "platforms": {
     "telegram": { "enabled": true, "bot_token": "..." },
     "beeper": {
@@ -509,9 +563,10 @@ All behavioral settings are configurable. Sane defaults applied when missing.
     }
   },
   "llm": {
-    "provider": "anthropic",
-    "model": "claude-sonnet-4-5-20250929",
-    "apiKey": "..."
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "apiKey": "...",
+    "baseUrl": ""
   },
   "memory": {
     "recent_window": 20,

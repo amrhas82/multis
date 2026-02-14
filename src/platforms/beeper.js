@@ -143,7 +143,7 @@ class BeeperPlatform extends Platform {
           let shouldProcess = false;
 
           if (isSelf && text.startsWith(this.commandPrefix)) {
-            // Explicit command: //ask, //mode, etc.
+            // Explicit command: //ask, //mode, etc. — always process
             shouldProcess = true;
           } else if (isSelf && isPersonalChat && !text.startsWith(this.commandPrefix)) {
             // Self-message in personal/note-to-self chat → natural language ask
@@ -152,6 +152,11 @@ class BeeperPlatform extends Platform {
           } else if (!isSelf && mode === 'business') {
             // Incoming message in a business-mode chat → auto-respond
             routeAs = 'business';
+            shouldProcess = true;
+          }
+          // silent mode: archive to memory, no response
+          if (!shouldProcess && mode === 'silent') {
+            routeAs = 'silent';
             shouldProcess = true;
           }
 
@@ -198,7 +203,8 @@ class BeeperPlatform extends Platform {
   _getChatMode(chatId) {
     const modes = this.config.platforms?.beeper?.chat_modes;
     if (modes && modes[chatId]) return modes[chatId];
-    return this.config.platforms?.beeper?.default_mode || 'personal';
+    // Fall back: beeper default_mode → global bot_mode → 'personal'
+    return this.config.platforms?.beeper?.default_mode || this.config.bot_mode || 'personal';
   }
 
   _loadToken() {
