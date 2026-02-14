@@ -233,7 +233,13 @@ async function main() {
   console.log('Only messages starting with // from your accounts will be processed.');
 }
 
-main().catch(err => {
-  console.error('Error:', err.message);
-  process.exit(1);
-});
+// Named exports for reuse in init wizard
+module.exports = { checkDesktop, oauthPKCE, api, loadToken, saveToken, updateConfig };
+
+// Run standalone if called directly
+if (require.main === module) {
+  main().catch(err => {
+    console.error('Error:', err.message);
+    process.exit(1);
+  });
+}

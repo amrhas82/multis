@@ -21,7 +21,7 @@ function createLLMClient(config) {
       if (!config.apiKey) {
         throw new Error('OpenAI API key is required');
       }
-      return new OpenAIProvider(config.apiKey, config.model);
+      return new OpenAIProvider(config.apiKey, config.model, config.baseUrl);
 
     case 'ollama':
       return new OllamaProvider(config.model, config.baseUrl);

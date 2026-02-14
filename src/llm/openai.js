@@ -1,14 +1,17 @@
 const https = require('https');
+const http = require('http');
 const { LLMProvider } = require('./base');
 
 /**
  * OpenAI GPT provider (vanilla Node.js https)
+ * Also works with any OpenAI-compatible API (OpenRouter, Together, Groq, etc.)
  */
 class OpenAIProvider extends LLMProvider {
-  constructor(apiKey, model = 'gpt-4o') {
+  constructor(apiKey, model = 'gpt-4o', baseUrl = 'https://api.openai.com') {
     super();
     this.apiKey = apiKey;
     this.model = model;
+    this.baseUrl = baseUrl.replace(/\/+$/, '');
   }
 
   async generate(prompt, options = {}) {
@@ -65,10 +68,13 @@ class OpenAIProvider extends LLMProvider {
   _makeRequest(body) {
     return new Promise((resolve, reject) => {
       const data = JSON.stringify(body);
+      const url = new URL('/v1/chat/completions', this.baseUrl);
+      const transport = url.protocol === 'http:' ? http : https;
 
       const options = {
-        hostname: 'api.openai.com',
-        path: '/v1/chat/completions',
+        hostname: url.hostname,
+        port: url.port || (url.protocol === 'http:' ? 80 : 443),
+        path: url.pathname,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,7 +83,7 @@ class OpenAIProvider extends LLMProvider {
         }
       };
 
-      const req = https.request(options, (res) => {
+      const req = transport.request(options, (res) => {
         let responseBody = '';
 
         res.on('data', (chunk) => {
